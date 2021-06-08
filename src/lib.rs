@@ -13,15 +13,19 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cell {
-    Dead = 0,
-    Alive = 1,
+    Dead = 128,
+    Alive = 255,
 }
+
+const ALIVE: u8 = 128;
+const DEAD: u8 = 255;
+
 
 #[wasm_bindgen]
 pub struct Universe {
     width: u32,
     height: u32,
-    cells: Vec<Cell>,
+    cells: Vec<u8>,
 }
 
 impl Universe {
@@ -40,7 +44,7 @@ impl Universe {
                 let neighbour_row = (row + delta_row) % self.height;
                 let neighbour_col = (column + delta_col) % self.width;
                 let idx = self.get_index(neighbour_row, neighbour_col);
-                count += self.cells[idx] as u8;
+                count += if self.cells[idx] == ALIVE { 1 } else { 0 } as u8;
             }
         }
         count
@@ -51,7 +55,7 @@ impl fmt::Display for Universe {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for line in self.cells.as_slice().chunks(self.width as usize) {
             for &cell in line {
-                let symbol = if cell == Cell::Dead { '.' } else {'*'};
+                let symbol = if cell == ALIVE { '.' } else {'*'};
                 write!(f, "{}", symbol)?;
             }
             write!(f, "\n")?;
@@ -72,9 +76,9 @@ impl Universe {
                 let live_neighbours = self.live_neighbour_count(row, col);
 
                 let next_cell = match (cell, live_neighbours) {
-                    (Cell::Alive, x) if x < 2 => Cell::Dead,
-                    (Cell::Alive, x) if x > 3 => Cell::Dead,
-                    (Cell::Dead, 3) => Cell::Alive,
+                    (ALIVE, x) if x < 2 => DEAD,
+                    (ALIVE, x) if x > 3 => DEAD,
+                    (DEAD, 3) => ALIVE,
                     (otherwise, _) => otherwise,
                 };
 
@@ -91,10 +95,15 @@ impl Universe {
 
         let cells = (0..width * height)
             .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 {
+                /*if i % 2 == 0 || i % 7 == 0 {
                     Cell::Alive
                 } else {
                     Cell::Dead
+                }*/
+                if js_sys::Math::random() < 0.5 {
+                    ALIVE
+                } else {
+                    DEAD
                 }
             }).collect();
 
@@ -117,7 +126,7 @@ impl Universe {
         self.height
     }
 
-    pub fn cells(&self) -> *const Cell {
+    pub fn cells(&self) -> *const u8 {
         self.cells.as_ptr()
     }
 }
